@@ -9,17 +9,45 @@ const PORT = process.env.PORT || 5000;
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const DEVTO_API_KEY = process.env.DEVTO_API_KEY;
 
-const FRONTEND_URL = process.env.FRONTEND_URL;
-app.use(cors(FRONTEND_URL ? { origin: FRONTEND_URL } : {}));
+// Parse allowed origins from environment variable or allow localhost by default
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow non-browser requests (like curl, Postman, or health checks)
+      if (!origin) return callback(null, true);
+      
+      // Match exact domain or subpaths (e.g. https://kalbuilds.github.io)
+      const isAllowed = allowedOrigins.some((allowed) =>
+        origin.startsWith(allowed.replace(/\/$/, ""))
+      );
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    },
+    methods: ["GET"],
+  })
+);
 
 let cache = { data: null, timestamp: 0 };
-const CACHE_DURATION_MS = 10 * 60 * 1000;
+const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 
 async function fetchFromNewsApi() {
   if (!NEWS_API_KEY) return [];
 
   const url = `https://newsapi.org/v2/top-headlines?category=technology&language=en&pageSize=50&apiKey=${NEWS_API_KEY}`;
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: { "User-Agent": "TechNewsApp/1.0" },
+  });
+  
   const data = await response.json();
 
   if (data.status !== "ok") {
@@ -57,6 +85,11 @@ async function fetchFromDevTo() {
   }));
 }
 
+// Health check endpoint for Render monitoring
+app.get("/health", (req, res) => {
+  res.status(200).send("OK");
+});
+
 app.get("/api/tech-news", async (req, res) => {
   try {
     const now = Date.now();
@@ -93,11 +126,11 @@ app.get("/api/tech-news", async (req, res) => {
     cache = { data: normalized, timestamp: now };
     res.json(normalized);
   } catch (err) {
-    console.error(err);
+    console.error("Server Error:", err);
     res.status(500).json({ error: "Server error fetching news" });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Backend running on http://localhost:${PORT} (NewsAPI + Dev.to)`);
+  console.log(`Backend running on port ${PORT}`);
 });
