@@ -9,7 +9,6 @@ const PORT = process.env.PORT || 5000;
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const DEVTO_API_KEY = process.env.DEVTO_API_KEY;
 
-// Parse allowed origins from environment variable or allow localhost by default
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
@@ -19,10 +18,8 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow non-browser requests (like curl, Postman, or health checks)
-      if (!origin) return callback(null, true);
       
-      // Match exact domain or subpaths (e.g. https://kalbuilds.github.io)
+      if (!origin) return callback(null, true);   
       const isAllowed = allowedOrigins.some((allowed) =>
         origin.startsWith(allowed.replace(/\/$/, ""))
       );
@@ -85,7 +82,6 @@ async function fetchFromDevTo() {
   }));
 }
 
-// Health check endpoint for Render monitoring
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
@@ -131,6 +127,10 @@ app.get("/api/tech-news", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`Backend running locally on port ${PORT}`);
+  });
+}
+
+export default app;
